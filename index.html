@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8" />
-<title>お金を支払う練習アプリ</title>
+<title>おかいもの　れんしゅう</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <style>
   :root{
@@ -72,13 +72,13 @@
 </style>
 </head>
 <body>
-  <header><h1>お金を支払う練習アプリ</h1></header>
+  <header><h1>いくら　はらう？</h1></header>
 
   <main>
     <!-- 設定（範囲 × きざみ） -->
     <div class="settings-box">
       <div class="settings-row">
-        <label>金額範囲：
+        <label>はんい：
           <input type="number" id="minPrice" value="0" min="0" step="1"> 円 〜
           <input type="number" id="maxPrice" value="3000" min="0" step="1"> 円
         </label>
@@ -91,9 +91,9 @@
             <option value="100">100円</option>
           </select>
         </label>
-        <label>支払いモード：
+        <label>モード：
           <select id="payMode">
-            <option value="exact" selected>ぴったり払う</option>
+            <option value="exact" selected>ぴったり</option>
             <option value="change">おつりあり</option>
           </select>
         </label>
@@ -103,18 +103,18 @@
     <!-- 問題 -->
     <div class="problem-box">
       <div class="button-group">
-        <button id="newQuestionBtn">あたらしい問題</button>
+        <button id="newQuestionBtn">もんだい</button>
         <button id="checkAnswerBtn" class="btn-blue">こたえ</button>
         <button id="hintBtn" class="btn-gray">ヒント</button>
         <button id="clearBtn" class="btn-outline">クリア</button>
       </div>
-      <div id="question" aria-live="polite">ボタンを押してね</div>
+      <div id="question" aria-live="polite">もんだいを　おして　スタート</div>
     </div>
 
     <!-- レジ -->
     <div id="register" class="register-box">
       <div class="register-header">
-        <b>レジにいれたお金</b>
+        <b>レジ　（おかねを　はこんだら　こたえを　おしてね）</b>
         <span id="totalAmount">0 円</span> <!-- ← 右上の緑（通常は非表示） -->
       </div>
       <div id="payment-area"></div>
