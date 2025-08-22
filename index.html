@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<title>お金を支払う練習アプリ</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<style>
+  :root{
+    --fg:#222; --bg:#fff; --muted:#6b7280; --card:#f8fafc; --border:#e5e7eb;
+    --accent:#10b981; --accent-light:#d1fae5; --accent-dark:#059669;
+    --warn:#ef4444; --blue:#3b82f6; --gray:#9ca3af;
+  }
+  *{box-sizing:border-box}
+  body{ margin:0; font-family:system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif; color:var(--fg); background:var(--bg) }
+  header{ padding:20px; border-bottom:1px solid var(--border); text-align:center }
+  h1{ margin:0; font-size:clamp(20px, 3.2vw, 28px) }
+  main{ padding:20px; max-width:980px; margin:0 auto }
+  button{
+    font-size:16px; padding:10px 18px; border-radius:10px; border:1px solid var(--border);
+    cursor:pointer; background:var(--accent-dark); color:#fff; border-color:var(--accent-dark);
+    font-weight:bold; transition:opacity .2s
+  }
+  button:hover{ opacity:.9 }
+  .btn-blue{ background:var(--blue); border-color:var(--blue) }
+  .btn-gray{ background:var(--gray); border-color:var(--gray) }
+  .btn-outline{ background:#fff; color:var(--fg) }
+
+  .settings-box{
+    background:var(--card); border:1px solid var(--border); border-radius:14px;
+    padding:16px; margin-bottom:20px; display:grid; gap:12px
+  }
+  .settings-row{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:center }
+  .settings-box label{ font-size:14px; color:#111 }
+  .settings-box input[type="number"], .settings-box select{
+    font-size:16px; padding:8px; border-radius:8px; border:1px solid var(--border)
+  }
+  .settings-box input[type="number"]{ width:100px; text-align:center }
+
+  .problem-box{
+    background:var(--card); border:1px solid var(--border); border-radius:14px;
+    padding:20px; text-align:center; margin-bottom:20px
+  }
+  .button-group{ display:flex; gap:10px; justify-content:center; margin-bottom:12px; flex-wrap:wrap }
+  #question{
+    font-size:clamp(22px, 4vw, 32px); font-weight:bold; min-height:48px;
+    display:flex; align-items:center; justify-content:center
+  }
+
+  .register-box{
+    background:var(--card); border:2px dashed var(--border); border-radius:14px;
+    padding:16px; margin-bottom:24px; min-height:170px; transition: background-color .2s, border-color .2s
+  }
+  .register-box.drag-over{ background-color:var(--accent-light); border-color:var(--accent-dark) }
+  .register-header{ display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; align-items:baseline; margin-bottom:8px }
+  .register-header b{ font-size:18px }
+  #totalAmount{ font-size:22px; font-weight:bold; color:var(--accent-dark); visibility:hidden } /* ← 通常は非表示 */
+  #totalAmount.visible{ visibility:visible } /* ← ヒント押下時のみ表示 */
+  #resultMessage{
+    font-size:clamp(26px, 5vw, 38px); font-weight:bold; text-align:center;
+    user-select:none; min-height:46px; display:flex; align-items:center; justify-content:center
+  }
+  #payment-area{ display:flex; flex-wrap:wrap; gap:8px; min-height:60px; align-items:center }
+  #payment-area .paid-money{ cursor:pointer; transition: transform .2s ease, filter .2s }
+  #payment-area .paid-money:hover{ transform:scale(1.08) rotate(-4deg); filter:brightness(1.05) }
+
+  .wallet-box{ background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px }
+  .wallet-box b{ display:block; margin-bottom:12px; font-size:18px }
+  .wallet-grid{ display:flex; flex-wrap:wrap; gap:10px; justify-content:center; align-items:center }
+  .draggable{ cursor:grab }
+  .dragging{ opacity:.6; transform:scale(1.08) }
+  [aria-live]{ min-height:1.2em }
+</style>
+</head>
+<body>
+  <header><h1>お金を支払う練習アプリ</h1></header>
+
+  <main>
+    <!-- 設定（範囲 × きざみ） -->
+    <div class="settings-box">
+      <div class="settings-row">
+        <label>金額範囲：
+          <input type="number" id="minPrice" value="0" min="0" step="1"> 円 〜
+          <input type="number" id="maxPrice" value="3000" min="0" step="1"> 円
+        </label>
+        <label>きざみ：
+          <select id="stepSelect">
+            <option value="1" selected>1円</option>
+            <option value="5">5円</option>
+            <option value="10">10円</option>
+            <option value="50">50円</option>
+            <option value="100">100円</option>
+          </select>
+        </label>
+        <label>支払いモード：
+          <select id="payMode">
+            <option value="exact" selected>ぴったり払う</option>
+            <option value="change">おつりあり</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <!-- 問題 -->
+    <div class="problem-box">
+      <div class="button-group">
+        <button id="newQuestionBtn">あたらしい問題</button>
+        <button id="checkAnswerBtn" class="btn-blue">こたえ</button>
+        <button id="hintBtn" class="btn-gray">ヒント</button>
+        <button id="clearBtn" class="btn-outline">クリア</button>
+      </div>
+      <div id="question" aria-live="polite">ボタンを押してね</div>
+    </div>
+
+    <!-- レジ -->
+    <div id="register" class="register-box">
+      <div class="register-header">
+        <b>レジにいれたお金</b>
+        <span id="totalAmount">0 円</span> <!-- ← 右上の緑（通常は非表示） -->
+      </div>
+      <div id="payment-area"></div>
+      <div id="resultMessage" aria-live="polite"></div>
+    </div>
+
+    <!-- 財布 -->
+    <div class="wallet-box">
+      <b>おかねを えらんで、レジに はこぼう（ドラッグ or タップ）</b>
+      <div id="wallet" class="wallet-grid"></div>
+    </div>
+  </main>
+
+<script>
+  // 要素
+  const questionEl = document.getElementById('question');
+  const newQuestionBtn = document.getElementById('newQuestionBtn');
+  const checkAnswerBtn = document.getElementById('checkAnswerBtn');
+  const hintBtn = document.getElementById('hintBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const registerEl = document.getElementById('register');
+  const paymentArea = document.getElementById('payment-area');
+  const totalAmountEl = document.getElementById('totalAmount');
+  const resultMessageEl = document.getElementById('resultMessage');
+  const walletEl = document.getElementById('wallet');
+  const minPriceEl = document.getElementById('minPrice');
+  const maxPriceEl = document.getElementById('maxPrice');
+  const stepSelect = document.getElementById('stepSelect');
+  const payModeSelect = document.getElementById('payMode');
+
+  // 状態
+  let targetAmount = 0;
+  let currentTotal = 0;
+  let draggedItem = null;
+
+  // 品物名（名前だけランダム表示）
+  const itemNames = [
+    "ジュース","おかし","パン","アイス","ノート","けしゴム","ぎゅうにゅう","おにぎり",
+    "えんぴつ","ほん","おもちゃ","ハンバーガー","えほん","パズル","ボール","リュック",
+    "ゲームソフト","スニーカー","シール","シャープペン","サンドイッチ","ケーキ"
+  ];
+
+  // 金種
+  const moneyTypes = [
+    { value: 10000, icon: () => svgBill("10000", "#fde68a", "#f59e0b", 120, 60) },
+    { value: 5000,  icon: () => svgBill("5000",  "#fde1e1", "#f97316", 110, 55) },
+    { value: 1000,  icon: () => svgBill("1000",  "#dbeafe", "#93c5fd", 100, 52) },
+    { value: 500,   icon: () => svgCoin("500",  "#e5e7eb", "#6b7280", 50) },
+    { value: 100,   icon: () => svgCoin("100",  "#eef2f7", "#9ca3af", 50) },
+    { value: 50,    icon: () => svgCoin("50",   "#eaeef6", "#94a3b8", 46, true) },
+    { value: 10,    icon: () => svgCoin("10",   "#fde68a", "#f59e0b", 46) },
+    { value: 5,     icon: () => svgCoin("5",    "#fff1b3", "#d4a017", 42, true) },
+    { value: 1,     icon: () => svgCoin("1",    "#f3f4f6", "#9ca3af", 42) }
+  ];
+
+  // イベント
+  newQuestionBtn.addEventListener('click', generateQuestion);
+  checkAnswerBtn.addEventListener('click', checkAnswer);
+  hintBtn.addEventListener('click', showHint);
+  clearBtn.addEventListener('click', () => clearRegister(false));
+
+  // ドラッグ＆ドロップ
+  walletEl.addEventListener('dragstart', (e) => {
+    if (e.target.classList.contains('draggable')) {
+      draggedItem = e.target;
+      setTimeout(() => e.target.classList.add('dragging'), 0);
+    }
+  });
+  walletEl.addEventListener('dragend', () => {
+    if (draggedItem) { draggedItem.classList.remove('dragging'); draggedItem = null; }
+  });
+  registerEl.addEventListener('dragover', (e) => { e.preventDefault(); registerEl.classList.add('drag-over'); });
+  registerEl.addEventListener('dragleave', () => { registerEl.classList.remove('drag-over'); });
+  registerEl.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (draggedItem) {
+      registerEl.classList.remove('drag-over');
+      addMoneyToRegister(parseInt(draggedItem.dataset.value, 10));
+    }
+  });
+
+  // タップでも追加
+  walletEl.addEventListener('click', (e) => {
+    const item = e.target.closest('.draggable');
+    if (!item) return;
+    const val = parseInt(item.dataset.value, 10);
+    addMoneyToRegister(val);
+  });
+
+  // 出題：品名はランダム、金額は「範囲 × きざみ」でランダム
+  function generateQuestion(){
+    let min = parseInt(minPriceEl.value, 10); if (isNaN(min) || min < 0) min = 0;
+    let max = parseInt(maxPriceEl.value, 10); if (isNaN(max)) max = 0;
+    if (min > max) { [min, max] = [max, min]; minPriceEl.value = min; maxPriceEl.value = max; }
+
+    const step = Math.max(1, parseInt(stepSelect.value, 10) || 1);
+    const width = max - min;
+    const count = Math.floor(width / step) + 1;
+
+    // リセット
+    clearRegister(true);
+
+    if (count <= 0){
+      questionEl.textContent = '範囲が不正です';
+      targetAmount = 0;
+      return;
+    }
+
+    const k = Math.floor(Math.random() * count);
+    targetAmount = min + k * step;
+
+    const name = itemNames[Math.floor(Math.random() * itemNames.length)];
+    questionEl.textContent = `${name} ${targetAmount}円`;
+  }
+
+  function renderWallet(){
+    walletEl.innerHTML = moneyTypes.map(m => {
+      const d = document.createElement('div');
+      d.innerHTML = m.icon();
+      d.className = 'draggable';
+      d.draggable = true;
+      d.dataset.value = m.value;
+      return d.outerHTML;
+    }).join('');
+  }
+
+  function addMoneyToRegister(value){
+    const wrap = document.createElement('div');
+    wrap.innerHTML = moneyTypes.find(m => m.value === value).icon();
+    const svg = wrap.firstChild;
+    const holder = document.createElement('div');
+    holder.classList.add('paid-money');
+    holder.dataset.value = String(value);
+    holder.appendChild(svg);
+    paymentArea.appendChild(holder);
+    updateTotal(value);
+  }
+
+  // 合計は更新するが「表示」はしない（ヒント押下時のみ表示）
+  function updateTotal(delta){
+    currentTotal += delta;
+    totalAmountEl.textContent = `${currentTotal} 円`;
+    totalAmountEl.classList.remove('visible'); // 自動表示しない
+    resultMessageEl.textContent = '';          // 自動ヒントは出さない
+  }
+
+  function checkAnswer(){
+    if (!targetAmount) return;
+    const mode = payModeSelect.value;
+
+    if (mode === 'exact'){
+      if (currentTotal === targetAmount){
+        showResult('◯ せいかい！', 'var(--accent-dark)');
+      }else if (currentTotal < targetAmount){
+        showResult('たりないよ', 'var(--warn)');
+      }else{
+        showResult('こえています', 'var(--warn)');
+      }
+    }else{
+      if (currentTotal < targetAmount){
+        showResult('たりないよ', 'var(--warn)');
+      }else{
+        const change = currentTotal - targetAmount;
+        const breakdown = greedyBreakdown(change, [10000,5000,1000,500,100,50,10,5,1]);
+        showResult(`◯ せいかい！ おつり ${change}円`, 'var(--accent-dark)');
+      }
+    }
+  }
+
+  // ヒント：合計金額を「右上の緑」だけ表示
+  function showHint(){
+    totalAmountEl.textContent = `${currentTotal} 円`; // 念のため最新値で上書き
+    totalAmountEl.classList.add('visible');          // ここでだけ表示
+    // 余計な文言は出さない
+  }
+
+  function clearRegister(keepMsg=false){
+    paymentArea.innerHTML = '';
+    currentTotal = 0;
+    totalAmountEl.textContent = '0 円';
+    totalAmountEl.classList.remove('visible'); // ヒント押下までは非表示
+    if (!keepMsg) resultMessageEl.textContent = '';
+  }
+
+  function showResult(text, color){
+    resultMessageEl.style.color = color;
+    resultMessageEl.textContent = text;
+  }
+
+  // おつり表示用（こたえボタンのみで使用）
+  function greedyBreakdown(amount, denoms){
+    if (amount === 0) return 'なし';
+    const parts = [];
+    let rest = amount;
+    for (const d of denoms){
+      const n = Math.floor(rest / d);
+      if (n > 0){ parts.push(`${d}円×${n}`); rest -= d * n; }
+    }
+    if (rest > 0) parts.push(`${rest}円`);
+    return parts.join(' + ');
+  }
+
+// レジに入れたお金をタップで戻す（削除＋合計から減算）
+paymentArea.addEventListener('click', (e) => {
+  const moneyItem = e.target.closest('.paid-money');
+  if (!moneyItem) return;
+  const value = parseInt(moneyItem.dataset.value, 10) || 0;
+  updateTotal(-value);     // 合計を減らす（ヒントは自動表示しない設計のまま）
+  moneyItem.remove();      // そのお金をレジから消す
+});
+
+
+  // SVG
+  function svgBill(label, colorA, colorB, w=120, h=60){
+    const rx = 8, txtSize = 18, gid = `g${label}-${w}-${h}`;
+    return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" class="icon" role="img" aria-label="${label}円札">
+      <defs><linearGradient id="${gid}" x1="0" x2="1" y1="0" y2="0">
+        <stop offset="0" stop-color="${colorA}"/><stop offset="1" stop-color="${colorB}"/></linearGradient></defs>
+      <rect x="1" y="1" width="${w-2}" height="${h-2}" rx="${rx}" fill="url(#${gid})" stroke="#1f2937" stroke-width="1.5"/>
+      <rect x="${w*0.06}" y="${h*0.18}" width="${w*0.18}" height="${h*0.64}" rx="6" fill="#ffffffaa" stroke="#1f2937" stroke-width="1"/>
+      <rect x="${w*0.76}" y="${h*0.18}" width="${w*0.18}" height="${h*0.64}" rx="6" fill="#ffffffaa" stroke="#1f2937" stroke-width="1"/>
+      <text x="${w/2}" y="${h/2 + txtSize/3}" text-anchor="middle" font-family="system-ui, 'Noto Sans JP', sans-serif" font-size="${txtSize}" fill="#111">${label}</text>
+    </svg>`;
+  }
+  function svgCoin(label, base, ring, size=60, hole=false){
+    const r = size/2 - 2, rq = r*0.56;
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" class="icon" role="img" aria-label="${label}円玉">
+      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="${base}" stroke="${ring}" stroke-width="2"/>
+      ${hole ? `<circle cx="${size/2}" cy="${size/2}" r="${r*0.28}" fill="#ffffff" stroke="${ring}" stroke-width="1.5"/>` : ''}
+      <text x="${size/2}" y="${size/2 + rq/3}" text-anchor="middle" font-family="system-ui, 'Noto Sans JP', sans-serif" font-weight="700" font-size="${rq}" fill="#111">${label}</text>
+    </svg>`;
+  }
+
+  // 初期化
+  renderWallet();
+</script>
+</body>
+</html>
